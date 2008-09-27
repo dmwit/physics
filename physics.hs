@@ -1,6 +1,8 @@
 import Control.Arrow
+import Control.Concurrent
 import Control.Concurrent.MVar
 import Control.Monad
+import Data.Time
 import Graphics.Rendering.Cairo
 import Graphics.UI.Gtk
 import Physics.Hipmunk hiding (scale)
@@ -9,10 +11,13 @@ groundShape = LineSegment (Vector (-10) 0.5) (Vector 10 (-0.5)) 0.1
 addedShape  = Circle 1
 
 main = do
-    space  <- makeSpace
-    bodies <- newMVar []
-    canvas <- makeGUI (addBody space bodies)
-    timeoutAdd (step space 0.01 >> redraw canvas bodies >> return True) 30
+    mSpace  <- makeSpace
+    mBodies <- newMVar []
+    canvas  <- makeGUI (addBody mSpace mBodies)
+    now     <- getCurrentTime
+
+    timeoutAdd (redraw canvas mBodies >> yield >> return True) 30
+    forkIO . forever $ physics mSpace now >> yield
     mainGUI
 
 makeSpace = do
@@ -24,7 +29,7 @@ makeSpace = do
     setPosition ground 0
     setFriction line 1
     spaceAdd space line
-    return space
+    newMVar space
 
 makeGUI onClick = do
     initGUI
@@ -41,25 +46,34 @@ makeGUI onClick = do
 
     widgetGetDrawWindow canvas
 
-addBody space bodies = do
+addBody mSpace mBodies = do
     body   <- newBody 1 1
     circle <- newShape body addedShape 0
 
     setPosition body (Vector 0 10)
     setFriction circle 1
 
-    bs <- takeMVar bodies
+    space <- takeMVar mSpace
     spaceAdd space body
     spaceAdd space circle
-    putMVar bodies (body:bs)
+    putMVar mSpace space
 
-redraw canvas bodies = do
-    bs     <- takeMVar bodies
-    ps     <- mapM (fmap castVector . getPosition) bs
-    thetas <- mapM (fmap cast       . getAngle   ) bs
-    putMVar bodies bs
+    modifyMVar_ mBodies (return . (body:))
 
-    drawWindowBeginPaintRect canvas (Rectangle 0 0 1600 1200)
+numSteps start now old = floor (diffUTCTime now start / 0.01) - old
+physics mSpace start = do
+    space <- takeMVar mSpace
+    steps <- liftM2 (numSteps start) getCurrentTime (getTimeStamp space)
+    replicateM_ (castInt steps) $ step space 0.01
+    putMVar mSpace space
+
+redraw canvas mBodies = do
+    bodies <- takeMVar mBodies
+    ps     <- mapM (fmap castVector . getPosition) bodies
+    thetas <- mapM (fmap castFloat  . getAngle   ) bodies
+    putMVar mBodies bodies
+
+    drawWindowBeginPaintRect canvas (Rectangle 0 0 800 600)
     renderWithDrawable canvas $ do
         translate 400 400
         scale 10 (-10)
@@ -76,5 +90,8 @@ redraw canvas bodies = do
         stroke
     drawWindowEndPaint canvas
 
-cast = fromRational . toRational
-castVector (Vector x y) = join (***) cast (x, y)
+castFloat :: (Real a, Fractional b) => a -> b
+castInt   :: (Integral a, Num b)    => a -> b
+castFloat = fromRational . toRational
+castInt   = fromInteger  . fromIntegral
+castVector (Vector x y) = join (***) castFloat (x, y)
