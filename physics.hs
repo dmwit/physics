@@ -77,4 +77,4 @@ redraw canvas bodies = do
     drawWindowEndPaint canvas
 
 cast = fromRational . toRational
-castVector (Vector x y) = join (***) (fromRational . toRational) (x, y)
+castVector (Vector x y) = join (***) cast (x, y)
