@@ -1,4 +1,5 @@
 import Control.Arrow
+import Control.Concurrent.MVar
 import Control.Monad
 import Graphics.Rendering.Cairo
 import Graphics.UI.Gtk
@@ -9,16 +10,9 @@ addedShape  = Circle 1
 
 main = do
     space  <- makeSpace
-    body   <- newBody 1 1
-    circle <- newShape body addedShape 0
-
-    setPosition body (Vector 0 10)
-    setFriction circle 1
-    spaceAdd space body
-    spaceAdd space circle
-
-    canvas <- makeGUI
-    timeoutAdd (step space 0.01 >> redraw canvas body >> return True) 30
+    bodies <- newMVar []
+    canvas <- makeGUI (addBody space bodies)
+    timeoutAdd (step space 0.01 >> redraw canvas bodies >> return True) 30
     mainGUI
 
 makeSpace = do
@@ -32,20 +26,38 @@ makeSpace = do
     spaceAdd space line
     return space
 
-makeGUI = do
+makeGUI onClick = do
     initGUI
     window <- windowNew
     canvas <- drawingAreaNew
-    onSizeRequest canvas (return $ Requisition 800 600)
-    onDestroy     window mainQuit
-    containerAdd  window canvas
-    widgetShowAll window
+
+    onSizeRequest   canvas (return $ Requisition 800 600)
+    widgetAddEvents canvas [ButtonPressMask]
+    onButtonPress   canvas (const $ onClick >> return True)
+
+    onDestroy       window mainQuit
+    containerAdd    window canvas
+    widgetShowAll   window
 
     widgetGetDrawWindow canvas
 
-redraw canvas body = do
-    (x, y) <- fmap castVector $ getPosition body
-    theta  <- fmap cast       $ getAngle    body
+addBody space bodies = do
+    body   <- newBody 1 1
+    circle <- newShape body addedShape 0
+
+    setPosition body (Vector 0 10)
+    setFriction circle 1
+
+    bs <- takeMVar bodies
+    spaceAdd space body
+    spaceAdd space circle
+    putMVar bodies (body:bs)
+
+redraw canvas bodies = do
+    bs     <- takeMVar bodies
+    ps     <- mapM (fmap castVector . getPosition) bs
+    thetas <- mapM (fmap cast       . getAngle   ) bs
+    putMVar bodies bs
 
     drawWindowClear    canvas
     renderWithDrawable canvas $ do
@@ -55,11 +67,12 @@ redraw canvas body = do
 
         moveTo (-10) 0.5
         lineTo 10 (-0.5)
-        stroke
 
-        arc x y 1 0 (2*pi)
-        moveTo x y
-        lineTo (x + cos theta) (y + sin theta)
+        forM_ (zip ps thetas) $ \((x, y), theta) -> do
+            moveTo x y
+            arc x y 1 theta (2*pi + theta)
+            closePath
+
         stroke
 
 cast = fromRational . toRational
