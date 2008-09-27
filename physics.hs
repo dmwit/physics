@@ -59,7 +59,7 @@ redraw canvas bodies = do
     thetas <- mapM (fmap cast       . getAngle   ) bs
     putMVar bodies bs
 
-    drawWindowClear    canvas
+    drawWindowBeginPaintRect canvas (Rectangle 0 0 1600 1200)
     renderWithDrawable canvas $ do
         translate 400 400
         scale 10 (-10)
@@ -74,6 +74,7 @@ redraw canvas bodies = do
             closePath
 
         stroke
+    drawWindowEndPaint canvas
 
 cast = fromRational . toRational
 castVector (Vector x y) = join (***) (fromRational . toRational) (x, y)
