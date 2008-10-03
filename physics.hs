@@ -3,9 +3,10 @@ import Control.Concurrent
 import Control.Concurrent.MVar
 import Control.Monad
 import Data.Time
-import Graphics.Rendering.Cairo
 import Graphics.UI.Gtk
 import Physics.Hipmunk hiding (scale)
+import Util
+import View
 
 groundShape = LineSegment (Vector (-10) 0.5) (Vector 10 (-0.5)) 0.1
 addedShape  = Circle 1
@@ -44,7 +45,7 @@ makeGUI onClick = do
     containerAdd    window canvas
     widgetShowAll   window
 
-    widgetGetDrawWindow canvas
+    return canvas
 
 addBody mSpace mBodies = do
     body   <- newBody 1 1
@@ -72,26 +73,4 @@ redraw canvas mBodies = do
     ps     <- mapM (fmap castVector . getPosition) bodies
     thetas <- mapM (fmap castFloat  . getAngle   ) bodies
     putMVar mBodies bodies
-
-    drawWindowBeginPaintRect canvas (Rectangle 0 0 800 600)
-    renderWithDrawable canvas $ do
-        translate 400 400
-        scale 10 (-10)
-        setLineWidth 0.1
-
-        moveTo (-10) 0.5
-        lineTo 10 (-0.5)
-
-        forM_ (zip ps thetas) $ \((x, y), theta) -> do
-            moveTo x y
-            arc x y 1 theta (2*pi + theta)
-            closePath
-
-        stroke
-    drawWindowEndPaint canvas
-
-castFloat :: (Real a, Fractional b) => a -> b
-castInt   :: (Integral a, Num b)    => a -> b
-castFloat = fromRational . toRational
-castInt   = fromInteger  . fromIntegral
-castVector (Vector x y) = join (***) castFloat (x, y)
+    redrawView ps thetas (View canvas (0, 0) 60)
