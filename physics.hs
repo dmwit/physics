@@ -17,7 +17,7 @@ main = do
     view    <- makeView (addBody mSpace mBodies)
     now     <- getCurrentTime
 
-    timeoutAdd (redraw view mBodies >> yield >> return True) 30
+    timeoutAddFull (redraw view mBodies >> yield >> return True) priorityLow 30
     forkIO . forever $ physics mSpace now >> yield
     mainGUI
 
@@ -50,7 +50,7 @@ numSteps start now old = floor (diffUTCTime now start / 0.01) - old
 physics mSpace start = do
     space <- takeMVar mSpace
     steps <- liftM2 (numSteps start) getCurrentTime (getTimeStamp space)
-    replicateM_ (castInt steps) $ step space 0.01
+    replicateM_ (min 100 $ castInt steps) $ step space 0.01
     putMVar mSpace space
 
 redraw view mBodies = do
