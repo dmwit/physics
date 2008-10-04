@@ -97,7 +97,6 @@ makeView onKey = do
     canvas <- drawingAreaNew
     view   <- newIORef emptyView { canvas = canvas }
 
-    onSizeRequest     canvas (return $ Requisition 800 600)
     widgetAddEvents   canvas [ButtonPressMask, ButtonReleaseMask, Button1MotionMask, ScrollMask]
     widgetSetCanFocus canvas True
     onKeyPress        canvas (const $ onKey >> return True)
