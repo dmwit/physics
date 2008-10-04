@@ -14,10 +14,10 @@ addedShape  = Circle 1
 main = do
     mSpace  <- makeSpace
     mBodies <- newMVar []
-    canvas  <- makeGUI (addBody mSpace mBodies)
+    view    <- makeView (addBody mSpace mBodies)
     now     <- getCurrentTime
 
-    timeoutAdd (redraw canvas mBodies >> yield >> return True) 30
+    timeoutAdd (redraw view mBodies >> yield >> return True) 30
     forkIO . forever $ physics mSpace now >> yield
     mainGUI
 
@@ -31,21 +31,6 @@ makeSpace = do
     setFriction line 1
     spaceAdd space line
     newMVar space
-
-makeGUI onClick = do
-    initGUI
-    window <- windowNew
-    canvas <- drawingAreaNew
-
-    onSizeRequest   canvas (return $ Requisition 800 600)
-    widgetAddEvents canvas [ButtonPressMask]
-    onButtonPress   canvas (const $ onClick >> return True)
-
-    onDestroy       window mainQuit
-    containerAdd    window canvas
-    widgetShowAll   window
-
-    return canvas
 
 addBody mSpace mBodies = do
     body   <- newBody 1 1
@@ -68,9 +53,9 @@ physics mSpace start = do
     replicateM_ (castInt steps) $ step space 0.01
     putMVar mSpace space
 
-redraw canvas mBodies = do
+redraw view mBodies = do
     bodies <- takeMVar mBodies
     ps     <- mapM (fmap castVector . getPosition) bodies
     thetas <- mapM (fmap castFloat  . getAngle   ) bodies
     putMVar mBodies bodies
-    redrawView ps thetas (View canvas (0, 0) 60)
+    redrawView ps thetas view
