@@ -56,33 +56,33 @@ redrawView ps thetas view = do
         stroke
     drawWindowEndPaint draw
 
-modifyView view (Scroll { eventDirection = d }) = do
-    view'@(View { diagonal = oldZoom }) <- readIORef view
-    writeIORef view $ case d of
-        ScrollUp   -> view' { diagonal = oldZoom * 0.9 }
-        ScrollDown -> view' { diagonal = oldZoom / 0.9 }
+modifyView view (Scroll { eventDirection = e }) = do
+    view'@(View { diagonal = d }) <- readIORef view
+    writeIORef view $ case e of
+        ScrollUp   -> view' { diagonal = d * 0.9 }
+        ScrollDown -> view' { diagonal = d / 0.9 }
         _          -> view'
     return True
 
-modifyView view (Button { eventClick = ReleaseClick, eventButton = button }) = do
-    view'@(View { buttons = buttons }) <- readIORef view
-    writeIORef view $ case delete button buttons of
+modifyView view (Button { eventClick = ReleaseClick, eventButton = b }) = do
+    view'@(View { buttons = bs }) <- readIORef view
+    writeIORef view $ case delete b bs of
         [] -> view' { buttons = [], drag = Nothing }
         xs -> view' { buttons = xs }
     return True
 
-modifyView view (Button { eventClick = SingleClick, eventButton = button }) = do
-    view'@(View { canvas = canvas, buttons = buttons, origin = origin }) <- readIORef view
+modifyView view (Button { eventClick = SingleClick, eventButton = b }) = do
+    view'@(View { canvas = c, buttons = bs, origin = o }) <- readIORef view
     mouse <- positionFromView view
-    writeIORef view $ case buttons of
-        [] -> view' { buttons = button:buttons, drag = Just (origin, mouse) }
-        _  -> view' { buttons = button:buttons }
+    writeIORef view $ case bs of
+        [] -> view' { buttons = b:bs, drag = Just (o, mouse) }
+        _  -> view' { buttons = b:bs }
     return True
 
 modifyView view (Motion {}) = do
     view' <- readIORef view
     case view' of
-        View { drag = Just ((dragOX, dragOY), (dragMX, dragMY)), canvas = canvas } -> do
+        View { drag = Just ((dragOX, dragOY), (dragMX, dragMY)) } -> do
             (dropMX, dropMY) <- positionFromView view
             let dropOrigin = (dragOX + dropMX - dragMX, dragOY + dropMY - dragMY)
             writeIORef view (view' { origin = dropOrigin })
