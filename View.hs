@@ -4,7 +4,8 @@ import Control.Arrow
 import Control.Monad
 import Data.IORef
 import Data.List
-import Graphics.UI.Gtk
+import Graphics.UI.Gtk hiding (eventClick, eventButton)
+import Graphics.UI.Gtk.Gdk.Events
 import Graphics.Rendering.Cairo
 import Util
 

@@ -2,8 +2,9 @@ import Control.Arrow
 import Control.Concurrent
 import Control.Concurrent.MVar
 import Control.Monad
+import Data.StateVar
 import Data.Time
-import Graphics.UI.Gtk
+import Graphics.UI.Gtk hiding (Circle, get)
 import Physics.Hipmunk hiding (scale)
 import Util
 import View
@@ -26,9 +27,9 @@ makeSpace = do
     space  <- newSpace
     ground <- newBody infinity infinity
     line   <- newShape ground groundShape 0
-    setGravity space (Vector 0 (-9.8))
-    setPosition ground 0
-    setFriction line 1
+    gravity space $= Vector 0 (-9.8)
+    position ground $= 0
+    friction line $= 1
     spaceAdd space line
     newMVar space
 
@@ -36,8 +37,8 @@ addBody mSpace mBodies = do
     body   <- newBody 1 1
     circle <- newShape body addedShape 0
 
-    setPosition body (Vector 0 10)
-    setFriction circle 1
+    position body $= Vector 0 10
+    friction circle $= 1
 
     space <- takeMVar mSpace
     spaceAdd space body
@@ -49,13 +50,13 @@ addBody mSpace mBodies = do
 numSteps start now old = floor (diffUTCTime now start / 0.01) - old
 physics mSpace start = do
     space <- takeMVar mSpace
-    steps <- liftM2 (numSteps start) getCurrentTime (getTimeStamp space)
+    steps <- liftM2 (numSteps start) getCurrentTime (get (timeStamp space))
     replicateM_ (min 100 $ castInt steps) $ step space 0.01
     putMVar mSpace space
 
 redraw view mBodies = do
     bodies <- takeMVar mBodies
-    ps     <- mapM (fmap castVector . getPosition) bodies
-    thetas <- mapM (fmap castFloat  . getAngle   ) bodies
+    ps     <- mapM (fmap castVector . get . position) bodies
+    thetas <- mapM (fmap castFloat  . get . angle   ) bodies
     putMVar mBodies bodies
     redrawView ps thetas view
